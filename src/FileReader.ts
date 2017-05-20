@@ -1,5 +1,5 @@
 const FS = require('fs');
-const BUFFER_MAX_LEN = 4;
+const BUFFER_MAX_LEN = 2048;
 
 class FileReader {
 	path: string;
@@ -19,11 +19,13 @@ class FileReader {
 		this.fileDef = FS.openSync(this.path, 'r');
 	}
 
-	getBuffer(minLen: number = 0): Buffer {
+	getBuffer(minLen: number = 1): Buffer {
 		if (!this.buffer) {
 			const buffer = new Buffer(BUFFER_MAX_LEN);
 
-			this.bufferLen = FS.readSync(this.fileDef, buffer, 0, BUFFER_MAX_LEN, null);
+			this.bufferLen = FS.readSync(this.fileDef, buffer, 0, BUFFER_MAX_LEN, this.index);
+			this.index += BUFFER_MAX_LEN;
+
 			if (this.bufferLen !== 0) {
 				this.buffer = buffer;
 				this.bufferIndex = 0;
@@ -33,8 +35,9 @@ class FileReader {
 		} else {
 			const bufferLen: number = this.buffer.length;
 
-			if (this.bufferIndex >= bufferLen) {
+			if (this.bufferIndex + minLen >= bufferLen) {
 				this.buffer = null;
+				this.index -= (bufferLen - this.bufferIndex);
 				return this.getBuffer();
 			}
 		}
@@ -51,14 +54,14 @@ class FileReader {
 
 	readUInt16() {
 		if (this.done) return null;
-		const int = this.getBuffer().readUInt16LE(this.bufferIndex);
+		const int = this.getBuffer(2).readUInt16LE(this.bufferIndex);
 		this.bufferIndex += 2;
 		return int;
 	}
 
 	readUInt32() {
 		if (this.done) return null;
-		const int = this.getBuffer().readUInt32LE(this.bufferIndex);
+		const int = this.getBuffer(4).readUInt32LE(this.bufferIndex);
 		this.bufferIndex += 4;
 		return int;
 	}

@@ -9,6 +9,7 @@ class VPK {
 
 	version: number;
 	treeSize: number;
+	files: object;
 
 	fileDataSectionSize: number;
 	archiveMD5SectionSize: number;
@@ -51,6 +52,8 @@ class VPK {
 	}
 
 	async loadTree() {
+		this.files = {};
+
 		while (true) {
 			// Extension
 			const extension = this.fileReader.readString();
@@ -67,21 +70,21 @@ class VPK {
 					if (!fileName) break;
 
 					const fullName = `${path}/${fileName}.${extension}`;
-					console.log('=>', fullName);
-
-					// console.log('CRC', this.fileReader.readUInt32());
-					// console.log('PreloadBytes', this.fileReader.readUInt16());
-					// console.log('ArchiveIndex', this.fileReader.readUInt16());
-					// console.log('EntryOffset', this.fileReader.readUInt32());
-					// console.log('EntryLength', this.fileReader.readUInt32());
-					// console.log('End', this.fileReader.readUInt16());
-
-					break;
+					this.files[fullName] = this.loadFileInfo();
 				}
-				break;
 			}
-			break;
 		}
+	}
+
+	loadFileInfo() {
+		return {
+			CRC: this.fileReader.readUInt32(),
+			PreloadBytes: this.fileReader.readUInt16(),
+			ArchiveIndex: this.fileReader.readUInt16(),
+			EntryOffset: this.fileReader.readUInt32(),
+			EntryLength: this.fileReader.readUInt32(),
+			End: this.fileReader.readUInt16() === 0xffff,
+		};
 	}
 }
 

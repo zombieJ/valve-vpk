@@ -5,7 +5,7 @@
   "main": "js/index.js",
   "scripts": {
     "pretest": "tsc",
-    "test": "mocha --timeout 2000 --recursive --compilers js:babel-core/register --require babel-polyfill",
+    "test": "mocha --timeout 20000 --recursive --compilers js:babel-core/register --require babel-polyfill",
     "prepublish": "tsc"
   },
   "author": "",
