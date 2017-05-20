@@ -69,7 +69,7 @@ class VPK {
 					const fullName = `${path}/${fileName}.${extension}`;
 					console.log('=>', fullName);
 
-					console.log('CRC', this.fileReader.readUInt32());
+					// console.log('CRC', this.fileReader.readUInt32());
 					// console.log('PreloadBytes', this.fileReader.readUInt16());
 					// console.log('ArchiveIndex', this.fileReader.readUInt16());
 					// console.log('EntryOffset', this.fileReader.readUInt32());

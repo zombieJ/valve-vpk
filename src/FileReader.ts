@@ -6,6 +6,8 @@ class FileReader {
 
 	fileDef: number;
 
+	index: number = 0;
+
 	buffer: Buffer;
 	bufferLen: number;
 	bufferIndex: number;
@@ -28,10 +30,15 @@ class FileReader {
 			} else {
 				this.done = true;
 			}
-		} else if (this.bufferIndex >= this.buffer.length) {
-			this.buffer = null;
-			return this.getBuffer();
+		} else {
+			const bufferLen: number = this.buffer.length;
+
+			if (this.bufferIndex >= bufferLen) {
+				this.buffer = null;
+				return this.getBuffer();
+			}
 		}
+
 		return this.buffer;
 	}
 
