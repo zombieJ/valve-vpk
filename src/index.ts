@@ -2,6 +2,22 @@ import FileReader from './FileReader';
 
 const PATH = require('path');
 const FS = require('fs');
+const CRC = require('crc');
+
+const HEADER_LENGTH_MAP = {
+	1: 12,
+	2: 28,
+};
+
+export interface FileInfo {
+	crc: number,
+	preloadBytes: number,
+	preloadOffset: number,
+	archiveIndex: number,
+	entryOffset: number,
+	entryLength: number,
+	end: boolean,
+}
 
 class VPK {
 	path: string;
@@ -9,7 +25,10 @@ class VPK {
 
 	version: number;
 	treeSize: number;
-	files: object;
+	files: object = {};
+	cacheFileList: Array<string>;
+
+	fileDefCache: Object = {};
 
 	fileDataSectionSize: number;
 	archiveMD5SectionSize: number;
@@ -52,8 +71,6 @@ class VPK {
 	}
 
 	async loadTree() {
-		this.files = {};
-
 		while (true) {
 			// Extension
 			const extension = this.fileReader.readString();
@@ -76,15 +93,66 @@ class VPK {
 		}
 	}
 
-	loadFileInfo() {
-		return {
-			CRC: this.fileReader.readUInt32(),
-			PreloadBytes: this.fileReader.readUInt16(),
-			ArchiveIndex: this.fileReader.readUInt16(),
-			EntryOffset: this.fileReader.readUInt32(),
-			EntryLength: this.fileReader.readUInt32(),
-			End: this.fileReader.readUInt16() === 0xffff,
+	loadFileInfo(): FileInfo {
+		const fileInfo =  {
+			crc: this.fileReader.readUInt32(),
+			preloadBytes: this.fileReader.readUInt16(),
+			archiveIndex: this.fileReader.readUInt16(),
+			entryOffset: this.fileReader.readUInt32(),
+			entryLength: this.fileReader.readUInt32(),
+			end: this.fileReader.readUInt16() === 0xffff,
+
+			preloadOffset: this.fileReader.index,
 		};
+
+		this.fileReader.skip(fileInfo.preloadBytes);
+
+		return fileInfo;
+	}
+
+	get fileList():Array<string> {
+		if (!this.cacheFileList) {
+			this.cacheFileList = Object.keys(this.files);
+		}
+		return this.cacheFileList;
+	}
+
+	readFile(filePath) {
+		const fileInfo: FileInfo = this.files[filePath];
+		if (!fileInfo) return null;
+
+		const buffer: Buffer = new Buffer(fileInfo.preloadBytes || fileInfo.entryLength);
+
+		if (fileInfo.preloadBytes) {
+			// Preload data
+			FS.readSync(this.fileReader.fileDef, buffer, 0, fileInfo.preloadBytes, fileInfo.entryOffset);
+		} else if (fileInfo.entryLength) {
+			// Entry data
+			if (fileInfo.archiveIndex === 0x7fff) {
+				// Inline entity
+				const offset = this.treeSize + HEADER_LENGTH_MAP[this.version];
+				FS.readSync(this.fileReader.fileDef, buffer, 0, fileInfo.entryLength, offset + fileInfo.entryOffset);
+			} else {
+				const filePath = this.path.replace('_dir.vpk', `_${String(fileInfo.archiveIndex).padStart(3, '0')}.vpk`);
+				let fileDef = this.fileDefCache[filePath];
+				if (!fileDef) {
+					fileDef = this.fileDefCache[filePath] = FS.openSync(filePath, 'r');
+				}
+				FS.readSync(fileDef, buffer, fileInfo.preloadBytes, fileInfo.entryLength, fileInfo.entryOffset);
+			}
+		}
+
+		if (CRC.crc32(buffer) !== fileInfo.crc) {
+			throw `CRC not match: ${filePath}`;
+		}
+
+		return buffer;
+	}
+
+	destroy() {
+		Object.values(this.fileDefCache).forEach((fileDef) => {
+			FS.closeSync(fileDef);
+		});
 	}
 }
 

@@ -7,7 +7,14 @@ describe('VPK Test', () => {
 		const vpk = new VPK(path);
 
 		return vpk.load().then(() => {
-			console.log(Object.keys(vpk.files).length);
+			const resPath = 'resource/flash3/images/spellicons';
+
+			assert.isTrue(vpk.fileList.length > 100);
+			const imageList = vpk.fileList.filter(path => path.startsWith(resPath));
+			const buffer = vpk.readFile(imageList[0]);
+			assert.isTrue(buffer.length > 100);
+		}).then(() => {
+			vpk.destroy();
 		});
 	});
 });
